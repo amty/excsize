@@ -3,3 +3,6 @@
 .pydevproject
 .settings
 
+/build*
+/cpp
+/plainc
