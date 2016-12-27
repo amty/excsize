@@ -24,13 +24,26 @@ class GenerateCode:
         self.cpp_header_templ = 'int func%d();\n'
         self.cpp_templ = '''#include<funcs.h>
 int func%d() {
+    DummyObject dobj;
     int a = func%d();
     int b = func%d();
     int c = func%d();
     return a + b + c;
 }
 '''
+        self.cpp_dummy = '''class DummyObject {
+public:
+    DummyObject();
+    ~DummyObject();
+private:
+    int i;
+};
+'''
         self.cpp_main = '''#include<funcs.h>
+
+DummyObject::DummyObject() { }
+DummyObject::~DummyObject() {}
+
 int main(int argc, char **argv) {
     return func0();
 }
@@ -40,24 +53,44 @@ int main(int argc, char **argv) {
         self.c_templ = '''#include<funcs.h>
 int func%d(char **error) {
     int a, b, c;
+    struct Dummy *d = dummy_new();
+
     a = func%d(error);
     if(*error) {
+        dummy_delete(d);
         return -1;
     }
     b = func%d(error);
     if(*error) {
+        dummy_delete(d);
         return -1;
     }
     c = func%d(error);
     if(*error) {
+        dummy_delete(d);
         return -1;
     }
+    dummy_delete(d);
     return a + b + c;
 }
 '''
 
+        self.c_dummy = '''struct Dummy {
+    int i;
+};
+    struct Dummy* dummy_new();
+    void dummy_delete(struct Dummy *d);
+'''
         self.c_main = '''#include<funcs.h>
 #include<stdlib.h>
+
+struct Dummy* dummy_new() {
+    return malloc(sizeof(struct Dummy));
+}
+
+void dummy_delete(struct Dummy *d) {
+    free(d);
+}
 
 int main(int argc, char **argv) {
     char *error = NULL;
@@ -75,8 +108,8 @@ int main(int argc, char **argv) {
 
     def run(self):
         self.deltrees()
-        cpp_headers = []
-        c_headers = []
+        cpp_headers = [self.cpp_dummy]
+        c_headers = [self.c_dummy]
         cpp_headername = os.path.join(self.cppdir, 'funcs.h')
         c_headername = os.path.join(self.cdir, 'funcs.h')
         meson_cpp = open(os.path.join(self.cppdir, 'meson.build'), 'w')
