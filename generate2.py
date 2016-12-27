@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-
-# Copyright (C) 2016 Jussi Pakkanen.
+# Copyright (C) 2016 Jussi Pakkanen, Juhani Simola
 #
 # This program is free software; you can redistribute it and/or modify it under
 # the terms of version 3, or (at your option) any later version,
@@ -15,6 +14,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# This is a slightly fancier version of generate that
+# tries to produce very compact C code. It is still
+# bigger than the C++ version.
+#
+# C unstripped 1365717
+# C stripped 174192
+# C++ unstripped 1317527
+# C++ stripped 166080
+# C++ (noexcept) unstripped 1087310
+# C++ (noexcept) stripped 116832
+
 import random, os, sys, shutil
 
 class GenerateCode:
@@ -22,7 +32,8 @@ class GenerateCode:
         self.cppdir = 'cpp'
         self.num_files = 1000
         self.cpp_header_templ = 'int func%d();\n'
-        self.cpp_templ = '''#include<funcs.h>
+        self.cpp_templ = '''#include "funcs.h"
+
 int func%d() {
     DummyObject dobj;
     int a = func%d();
@@ -30,58 +41,57 @@ int func%d() {
     int c = func%d();
     return a + b + c;
 }
+
 '''
         self.cpp_dummy = '''class DummyObject {
 public:
     DummyObject();
     ~DummyObject();
+
 private:
+
     int i;
+
 };
 '''
-        self.cpp_main = '''#include<funcs.h>
+        self.cpp_main = '''#include "funcs.h"
 
-DummyObject::DummyObject() : i(5){ }
+DummyObject::DummyObject() { }
 DummyObject::~DummyObject() {}
 
 int main(int argc, char **argv) {
     return func0();
 }
+
 '''
+
         self.cdir = 'plainc'
-        self.c_header_templ = 'int func%d(char **error);\n'
-        self.c_templ = '''#include<funcs.h>
-int func%d(char **error) {
+        self.c_header_templ = 'bool func%d(int *val);\n'
+        self.c_templ = '''#include "funcs.h"
+#include <stdbool.h>
+bool func%d(int *val) {
     int a, b, c;
     struct Dummy *d = dummy_new();
-
-    a = func%d(error);
-    if(*error) {
-        dummy_delete(d);
-        return -1;
-    }
-    b = func%d(error);
-    if(*error) {
-        dummy_delete(d);
-        return -1;
-    }
-    c = func%d(error);
-    if(*error) {
-        dummy_delete(d);
-        return -1;
-    }
+    bool success = func%d(&a) && func%d(&b) && func%d(&c);
+    if (success)
+        *val = a + b + c;
     dummy_delete(d);
-    return a + b + c;
+    return success;
 }
+
 '''
 
-        self.c_dummy = '''struct Dummy {
+        self.c_dummy = '''
+#include <stdbool.h>
+
+struct Dummy {
     int i;
 };
     struct Dummy* dummy_new();
     void dummy_delete(struct Dummy *d);
 '''
-        self.c_main = '''#include<funcs.h>
+
+        self.c_main = '''#include "funcs.h"
 #include<stdlib.h>
 
 struct Dummy* dummy_new() {
@@ -96,6 +106,7 @@ int main(int argc, char **argv) {
     char *error = NULL;
     return func0(&error);
 }
+
 '''
 
     def deltrees(self):
@@ -114,7 +125,7 @@ int main(int argc, char **argv) {
         c_headername = os.path.join(self.cdir, 'funcs.h')
         meson_cpp = open(os.path.join(self.cppdir, 'meson.build'), 'w')
         meson_c = open(os.path.join(self.cdir, 'meson.build'), 'w')
-        meson_cpp.write('''project('cpp size test', 'cpp', default_options : ['cpp_std=c++14'])
+        meson_cpp.write('''project('cpp size test', 'cpp', default_options : ['cpp_std=c++11'])
 srcs = [
 ''')
         meson_c.write('''project('c size test', 'c', default_options : ['cpp_std=gnu11'])
