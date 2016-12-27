@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright (C) 2016 Jussi Pakkanen, Juhani Simola
+
+# Copyright (C) 2016 Jussi Pakkanen, Juhani Simola.
 #
 # This program is free software; you can redistribute it and/or modify it under
 # the terms of version 3, or (at your option) any later version,
@@ -14,19 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# This is a slightly fancier version of generate that
-# tries to produce very compact C code. It is still
-# bigger than the C++ version even though it no longer
-# has an associated error object to pass an error message.
-#
-# C unstripped 1365717
-# C stripped 174192
-# C++ unstripped 1317527
-# C++ stripped 166080
-# C++ (noexcept) unstripped 1087310
-# C++ (noexcept) stripped 116832
-#
-# Adding an error object brings stripped C to 198768 bytes.
+# Like generate2.py but preserves the error message object.
 
 import random, os, sys, shutil
 
@@ -36,7 +25,6 @@ class GenerateCode:
         self.num_files = 1000
         self.cpp_header_templ = 'int func%d();\n'
         self.cpp_templ = '''#include "funcs.h"
-
 int func%d() {
     DummyObject dobj;
     int a = func%d();
@@ -44,17 +32,13 @@ int func%d() {
     int c = func%d();
     return a + b + c;
 }
-
 '''
         self.cpp_dummy = '''class DummyObject {
 public:
     DummyObject();
     ~DummyObject();
-
 private:
-
     int i;
-
 };
 '''
         self.cpp_main = '''#include "funcs.h"
@@ -65,35 +49,32 @@ DummyObject::~DummyObject() {}
 int main(int argc, char **argv) {
     return func0();
 }
-
 '''
-
         self.cdir = 'plainc'
-        self.c_header_templ = 'bool func%d(int *val);\n'
+        self.c_header_templ = 'char* func%d(int *val);\n'
         self.c_templ = '''#include "funcs.h"
-#include <stdbool.h>
-bool func%d(int *val) {
+char* func%d(int *val) {
     int a, b, c;
     struct Dummy *d = dummy_new();
-    bool success = func%d(&a) && func%d(&b) && func%d(&c);
-    if (success)
+    char* err = func%d(&a);
+    if (!err)
+        err = func%d(&b);
+    if (!err)
+        err = func%d(&c);
+    if (!err)
         *val = a + b + c;
     dummy_delete(d);
-    return success;
+    return err;
 }
-
 '''
 
         self.c_dummy = '''
-#include <stdbool.h>
-
 struct Dummy {
     int i;
 };
     struct Dummy* dummy_new();
     void dummy_delete(struct Dummy *d);
 '''
-
         self.c_main = '''#include "funcs.h"
 #include<stdlib.h>
 
@@ -106,10 +87,10 @@ void dummy_delete(struct Dummy *d) {
 }
 
 int main(int argc, char **argv) {
-    char *error = NULL;
-    return func0(&error);
+    int val;
+    char *error = func0(&val);
+    return val;
 }
-
 '''
 
     def deltrees(self):
@@ -143,7 +124,7 @@ srcs = [
             meson_c.write("  'src%d.c',\n" % i)
             if i == self.num_files-1:
                 open(cpp_ofname, 'w').write('int func%d() { return 1; }\n' % (self.num_files-1))
-                open(c_ofname, 'w').write('int func%d(char **error) { return 1; }\n' % (self.num_files-1))
+                open(c_ofname, 'w').write('#include <stddef.h>\nchar* func%d(int* val) { *val = 1; return NULL; }\n' % (self.num_files-1))
                 continue
             off1 = random.randint(1, 9)
             off2 = random.randint(1, 9)
