@@ -26,6 +26,9 @@ class Measurer:
         self.source_cpp = 'cpp'
         self.build_cpp = 'buildcpp'
         self.cpp_exe = os.path.join(self.build_cpp, 'cppbin')
+        self.source_c = 'plainc'
+        self.build_c = 'buildc'
+        self.c_exe = os.path.join(self.build_c, 'cbin')
         self.meson_exe = '../meson/meson.py'
 
     def build_and_measure(self, src_dir, build_dir, bin_name, extra_args = [], env=None):
@@ -39,8 +42,15 @@ class Measurer:
         return (size, stripped_size)
 
     def run(self):
+        # Do not use ccache. Just in case.
+        os.environ['CC'] = 'cc'
+        os.environ['CXX'] = 'c++'
         subprocess.check_call('./generate.py')
 
+        c_size, c_stripped_size = self.build_and_measure(self.source_c,
+                                                         self.build_c,
+                                                         self.c_exe,
+                                                         ['--buildtype=debugoptimized'])
         cpp_size, cpp_stripped_size = self.build_and_measure(self.source_cpp,
                                                              self.build_cpp,
                                                              self.cpp_exe,
@@ -52,6 +62,8 @@ class Measurer:
                                                                  self.cpp_exe,
                                                                  ['--buildtype=debugoptimized'],
                                                                  env=noexc_env)
+        print('C unstripped', c_size)
+        print('C stripped', c_stripped_size)
         print('C++ unstripped', cpp_size)
         print('C++ stripped', cpp_stripped_size)
         print('C++ (noexcept) unstripped', noexc_size)
