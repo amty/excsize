@@ -56,22 +56,20 @@ int func%d(char **error) {
     struct Dummy *d = dummy_new();
 
     a = func%d(error);
-    if(*error) {
-        dummy_delete(d);
-        return -1;
-    }
+    if(*error)
+        goto fail;
     b = func%d(error);
-    if(*error) {
-        dummy_delete(d);
-        return -1;
-    }
+    if(*error)
+        goto fail;
     c = func%d(error);
-    if(*error) {
-        dummy_delete(d);
-        return -1;
-    }
+    if(*error)
+        goto fail;
     dummy_delete(d);
     return a + b + c;
+
+fail:
+    dummy_delete(d);
+    return -1;
 }
 '''
 
